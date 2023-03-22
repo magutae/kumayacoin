@@ -1,5 +1,15 @@
 package wallet
 
+import (
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+
+	"github.com/magutae/kumayacoin/utils"
+)
+
 // 1) hash the msg
 // "message" -> hash(x) -> "hashed_message"
 
@@ -19,5 +29,25 @@ const (
 )
 
 func Start() {
+	privBytes, err := hex.DecodeString(privateKey)
+	utils.HandleErr(err)
 
+	private, err := x509.ParseECPrivateKey(privBytes)
+	utils.HandleErr(err)
+
+	sigBytes, err := hex.DecodeString(signature)
+	utils.HandleErr(err)
+
+	rBytes := sigBytes[:len(sigBytes)/2]
+	sBytes := sigBytes[len(sigBytes)/2:]
+
+	var bigR, bigS = big.Int{}, big.Int{}
+	bigR.SetBytes(rBytes)
+	bigS.SetBytes(sBytes)
+
+	hashBytes, err := hex.DecodeString(hashedMessage)
+	utils.HandleErr(err)
+
+	ok := ecdsa.Verify(&private.PublicKey, hashBytes, &bigR, &bigS)
+	fmt.Println(ok)
 }
