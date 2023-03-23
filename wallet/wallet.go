@@ -2,52 +2,66 @@ package wallet
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
-	"encoding/hex"
-	"fmt"
-	"math/big"
+	"os"
 
 	"github.com/magutae/kumayacoin/utils"
 )
 
-// 1) hash the msg
-// "message" -> hash(x) -> "hashed_message"
-
-// 2) generate key pair
-// KeyPair (privateKey, publicKey) -> (save priv to a file: wallet)
-
-// 3) sign the hash
-// ("hashed_message" + privateKey) -> "signature"
-
-// 4) verify
-// ("hashed_message", + "segnature" + publicKey) -> true / false
-
 const (
-	signature     string = "18bcb6862fdf459c33021091f521fd37a74d62006488df2fde65d79bbcdf98ba85601f364fbc3942b2cc1961ef4b866e4bfccbfab51b422473991f482b6b3adb"
-	privateKey    string = "30770201010420cca45b6a3f0209b12e5c3f67c43fe2c9b0555e4b7a1f4b32ff1a8d7680359564a00a06082a8648ce3d030107a14403420004db99c4dc07d960b2793745290be09be23be58fab275a9b5018b33fbc15d73a18d8635d9f189db5a9d0915b0a6a1a9ad663eea5819eb44f1ce65703f2f8e48ae3"
-	hashedMessage string = "1c5863cd55b5a4413fd59f054af57ba3c75c0698b3851d70f99b8de2d5c7338f"
+	fileName string = "kumayacoin.wallet"
 )
 
-func Start() {
-	privBytes, err := hex.DecodeString(privateKey)
+type wallet struct {
+	privateKey *ecdsa.PrivateKey
+	address    string
+}
+
+var w *wallet
+
+func hasWalletFile() bool {
+	_, err := os.Stat(fileName)
+	return !os.IsNotExist(err)
+}
+
+func createPrivKey() *ecdsa.PrivateKey {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	utils.HandleErr(err)
+	return privKey
+}
 
-	private, err := x509.ParseECPrivateKey(privBytes)
+func persistKey(key *ecdsa.PrivateKey) {
+	bytes, err := x509.MarshalECPrivateKey(key)
 	utils.HandleErr(err)
-
-	sigBytes, err := hex.DecodeString(signature)
+	err = os.WriteFile(fileName, bytes, 0644)
 	utils.HandleErr(err)
+}
 
-	rBytes := sigBytes[:len(sigBytes)/2]
-	sBytes := sigBytes[len(sigBytes)/2:]
-
-	var bigR, bigS = big.Int{}, big.Int{}
-	bigR.SetBytes(rBytes)
-	bigS.SetBytes(sBytes)
-
-	hashBytes, err := hex.DecodeString(hashedMessage)
+func restoreKey() (key *ecdsa.PrivateKey) {
+	bytes, err := os.ReadFile(fileName)
 	utils.HandleErr(err)
+	key, err = x509.ParseECPrivateKey(bytes)
+	utils.HandleErr(err)
+	return
+}
 
-	ok := ecdsa.Verify(&private.PublicKey, hashBytes, &bigR, &bigS)
-	fmt.Println(ok)
+func addressFromKey(key *ecdsa.PrivateKey) string {
+
+}
+
+func Wallet() *wallet {
+	if w == nil {
+		w = &wallet{}
+		if hasWalletFile() {
+			w.privateKey = restoreKey()
+		} else {
+			key := createPrivKey()
+			persistKey(key)
+			w.privateKey = key
+		}
+		w.address = addressFromKey(w.privateKey)
+	}
+	return w
 }
