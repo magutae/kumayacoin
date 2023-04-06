@@ -8,6 +8,7 @@ import (
 
 	"github.com/magutae/kumayacoin/db"
 	"github.com/magutae/kumayacoin/utils"
+	"github.com/magutae/kumayacoin/wallet"
 )
 
 var ErrNotFound = errors.New("block not found")
@@ -62,7 +63,7 @@ func createBlock(prevHash string, height, diff int) *Block {
 		Height:       height,
 		Difficulty:   diff,
 		Nonce:        0,
-		Transactions: []*Tx{makeCoinbaseTx("kumaya")},
+		Transactions: []*Tx{makeCoinbaseTx(wallet.Wallet().Address)},
 	}
 	block.mine()
 	block.Transactions = Mempool.TxToConfirm()

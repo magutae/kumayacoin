@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/magutae/kumayacoin/blockchain"
 	"github.com/magutae/kumayacoin/utils"
+	"github.com/magutae/kumayacoin/wallet"
 )
 
 var port string
@@ -34,6 +35,10 @@ type errorResponse struct {
 type addTxPayload struct {
 	To     string `json:"to"`
 	Amount int    `json:"amount"`
+}
+
+type myWalletResponse struct {
+	Address string `json:"address"`
 }
 
 func (u url) MarshalText() ([]byte, error) {
@@ -133,6 +138,11 @@ func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func myWallet(rw http.ResponseWriter, r *http.Request) {
+	address := wallet.Wallet().Address
+	json.NewEncoder(rw).Encode(myWalletResponse{Address: address})
+}
+
 func Start(aPort int) {
 	handler := mux.NewRouter()
 	port = fmt.Sprintf(":%d", aPort)
@@ -143,6 +153,7 @@ func Start(aPort int) {
 	handler.HandleFunc("/blocks/{hash:[a-f0-9]+}", block).Methods("GET")
 	handler.HandleFunc("/balance/{address}", balance).Methods("GET")
 	handler.HandleFunc("/mempool", mempool)
+	handler.HandleFunc("/wallet", myWallet).Methods("GET")
 	handler.HandleFunc("/transactions", transactions).Methods("POST")
 	fmt.Printf("Listening on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, handler))

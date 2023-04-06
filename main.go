@@ -1,9 +1,11 @@
 package main
 
-import "github.com/magutae/kumayacoin/wallet"
+import (
+	"github.com/magutae/kumayacoin/cli"
+	"github.com/magutae/kumayacoin/db"
+)
 
 func main() {
-	// defer db.Close()
-	// cli.Start()
-	wallet.Wallet()
+	defer db.Close()
+	cli.Start()
 }

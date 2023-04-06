@@ -5,6 +5,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/hex"
+	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/magutae/kumayacoin/utils"
@@ -16,7 +19,7 @@ const (
 
 type wallet struct {
 	privateKey *ecdsa.PrivateKey
-	address    string
+	Address    string
 }
 
 var w *wallet
@@ -47,8 +50,55 @@ func restoreKey() (key *ecdsa.PrivateKey) {
 	return
 }
 
-func addressFromKey(key *ecdsa.PrivateKey) string {
+func encodeTwoBytes(a, b []byte) string {
+	c := append(a, b...)
+	return fmt.Sprintf("%x", c)
+}
 
+func addressFromKey(key *ecdsa.PrivateKey) string {
+	return encodeTwoBytes(key.X.Bytes(), key.Y.Bytes())
+}
+
+func Sign(payload string, w *wallet) string {
+	payloadAsBytes, err := hex.DecodeString(payload)
+	utils.HandleErr(err)
+
+	r, s, err := ecdsa.Sign(rand.Reader, w.privateKey, payloadAsBytes)
+	utils.HandleErr(err)
+	return encodeTwoBytes(r.Bytes(), s.Bytes())
+}
+
+func restoreBigInt(payload string) (*big.Int, *big.Int, error) {
+	bytes, err := hex.DecodeString(payload)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	firstHalfBytes := bytes[:len(bytes)/2]
+	secondHalfBytes := bytes[len(bytes)/2:]
+
+	bigA, bigB := big.Int{}, big.Int{}
+	bigA.SetBytes(firstHalfBytes)
+	bigB.SetBytes(secondHalfBytes)
+
+	return &bigA, &bigB, nil
+}
+
+func Verify(signature, payload, address string) bool {
+	r, s, err := restoreBigInt(signature)
+	utils.HandleErr(err)
+
+	x, y, err := restoreBigInt(address)
+	utils.HandleErr(err)
+	publicKey := ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     x,
+		Y:     y,
+	}
+
+	payloadBytes, err := hex.DecodeString(payload)
+	utils.HandleErr(err)
+	return ecdsa.Verify(&publicKey, payloadBytes, r, s)
 }
 
 func Wallet() *wallet {
@@ -61,7 +111,7 @@ func Wallet() *wallet {
 			persistKey(key)
 			w.privateKey = key
 		}
-		w.address = addressFromKey(w.privateKey)
+		w.Address = addressFromKey(w.privateKey)
 	}
 	return w
 }
