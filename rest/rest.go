@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/magutae/kumayacoin/blockchain"
+	"github.com/magutae/kumayacoin/p2p"
 	"github.com/magutae/kumayacoin/utils"
 	"github.com/magutae/kumayacoin/wallet"
 )
@@ -73,6 +74,11 @@ func documentation(rw http.ResponseWriter, r *http.Request) {
 			URL:         url("/balance/{address}"),
 			Method:      "GET",
 			Description: "Get TxOuts for an address",
+		},
+		{
+			URL:         url("/ws"),
+			Method:      "GET",
+			Description: "Upgrade to WebSockets",
 		},
 	}
 	json.NewEncoder(rw).Encode(data)
@@ -140,6 +146,13 @@ func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func loggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL)
+		next.ServeHTTP(rw, r)
+	})
+}
+
 func myWallet(rw http.ResponseWriter, r *http.Request) {
 	address := wallet.Wallet().Address
 	json.NewEncoder(rw).Encode(myWalletResponse{Address: address})
@@ -148,7 +161,7 @@ func myWallet(rw http.ResponseWriter, r *http.Request) {
 func Start(aPort int) {
 	handler := mux.NewRouter()
 	port = fmt.Sprintf(":%d", aPort)
-	handler.Use(jsonContentTypeMiddleware)
+	handler.Use(jsonContentTypeMiddleware, loggerMiddleware)
 	handler.HandleFunc("/", documentation).Methods("GET")
 	handler.HandleFunc("/status", status).Methods("GET")
 	handler.HandleFunc("/blocks", blocks).Methods("GET", "POST")
@@ -156,6 +169,7 @@ func Start(aPort int) {
 	handler.HandleFunc("/balance/{address}", balance).Methods("GET")
 	handler.HandleFunc("/mempool", mempool)
 	handler.HandleFunc("/wallet", myWallet).Methods("GET")
+	handler.HandleFunc("/ws", p2p.Upgrade).Methods("GET")
 	handler.HandleFunc("/transactions", transactions).Methods("POST")
 	fmt.Printf("Listening on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, handler))
