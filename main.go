@@ -1,11 +1,28 @@
 package main
 
-import (
-	"github.com/magutae/kumayacoin/cli"
-	"github.com/magutae/kumayacoin/db"
-)
+import "fmt"
+
+func countToTen(c chan<- int) {
+	for i := 0; i < 10; i++ {
+		c <- i
+		fmt.Printf("sending %d\n", i)
+	}
+	close(c)
+}
+
+func receive(c <-chan int) {
+	for {
+		a, ok := <-c
+		if !ok {
+			fmt.Println("we are done.")
+			break
+		}
+		fmt.Printf("received %d\n", a)
+	}
+}
 
 func main() {
-	defer db.Close()
-	cli.Start()
+	c := make(chan int)
+	go countToTen(c)
+	receive(c)
 }
