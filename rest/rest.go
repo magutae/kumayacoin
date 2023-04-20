@@ -42,6 +42,10 @@ type myWalletResponse struct {
 	Address string `json:"address"`
 }
 
+type addPeerPayload struct {
+	Address, Port string
+}
+
 func (u url) MarshalText() ([]byte, error) {
 	url := fmt.Sprintf("http://localhost%s%s", port, u)
 	return []byte(url), nil
@@ -158,6 +162,18 @@ func myWallet(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(myWalletResponse{Address: address})
 }
 
+func peers(rw http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		var payload addPeerPayload
+		json.NewDecoder(r.Body).Decode(&payload)
+		p2p.AddPeer(payload.Address, payload.Port, port)
+		rw.WriteHeader(http.StatusOK)
+	case "GET":
+		json.NewEncoder(rw).Encode(p2p.Peers)
+	}
+}
+
 func Start(aPort int) {
 	handler := mux.NewRouter()
 	port = fmt.Sprintf(":%d", aPort)
@@ -170,6 +186,7 @@ func Start(aPort int) {
 	handler.HandleFunc("/mempool", mempool)
 	handler.HandleFunc("/wallet", myWallet).Methods("GET")
 	handler.HandleFunc("/ws", p2p.Upgrade).Methods("GET")
+	handler.HandleFunc("/peers", peers).Methods("GET", "POST")
 	handler.HandleFunc("/transactions", transactions).Methods("POST")
 	fmt.Printf("Listening on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, handler))
